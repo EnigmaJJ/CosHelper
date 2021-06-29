@@ -66,7 +66,7 @@ private:
 		TSharedPtr<IHttpRequest, ESPMode::ThreadSafe> HttpRequest;
 		TArray<FOnCosRequestCompleted> CompletedDelegateInstances;
 
-		void Destroy();
+		~FRequestData();
 	};
 
 private:
@@ -96,6 +96,8 @@ private:
 	                          , TFunction<bool(TSharedRef<IHttpRequest, ESPMode::ThreadSafe>)> OnFillHttpRequest
 	                          , FOnCosRequestCompleted OnCosRequestCompleted);
 
+	FString EncodePathName(const FString& InPathName) const;
+
 	void OnHttpRequestCompleted(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bConnectedSuccessfully);
 
 private:
@@ -108,8 +110,8 @@ private:
 	FString SecretKey;
 
 	/** Key is URIPathName */
-	TMap<FString, FRequestData> URIToRequests;
+	TMap<FString, TSharedPtr<FRequestData>> URIToRequests;
 
 	/** HttpRequest完成时，我们需要通过HttpRequest来获取对应的RequestData */
-	TMap<IHttpRequest*, FRequestData*> HttpToRequests;
+	TMap<IHttpRequest*, TSharedPtr<FRequestData>> HttpToRequests;
 };

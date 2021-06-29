@@ -110,7 +110,7 @@ FString UCosHelper::GenerateAuthorization(const IHttpRequest& HttpRequest, const
 	const int64 StartTimestamp = Now.ToUnixTimestamp();
 	const int64 EndTimestamp = StartTimestamp + SignExpirationTime;
 
-	FString KeyTime = FString::Printf(TEXT("%lld;%lld"), StartTimestamp, EndTimestamp);
+	const FString KeyTime = FString::Printf(TEXT("%lld;%lld"), StartTimestamp, EndTimestamp);
 	//~ End 生成KeyTime
 
 	//~ Begin 生成SignKey
@@ -183,19 +183,19 @@ bool UCosHelper::GenerateEncodedStrings(const TMap<FString, FString>& Parameters
 	TSortedMap<FString, FString> SortedParameters;
 	for (auto& Param : Parameters)
 	{
-		const FString& Key = Param.Key;
-		const FString& Value = Param.Value;
-		SortedParameters.Add(Key.ToLower(), Value.ToLower());
+		const FString& EncodedKey = FPlatformHttp::UrlEncode(Param.Key);
+		const FString& EncodedValue = FPlatformHttp::UrlEncode(Param.Value);
+		SortedParameters.Add(EncodedKey.ToLower(), EncodedValue);
 	}
 
 	int32 Idx = 0;
 	for (auto& Param : SortedParameters)
 	{
-		const FString& EncodedKey = FPlatformHttp::UrlEncode(Param.Key);
-		const FString& EncodedValue = FPlatformHttp::UrlEncode(Param.Value);
+		const FString& Key = Param.Key;
+		const FString& Value = Param.Value;
 
-		OutKeyList += EncodedKey;
-		OutString += FString::Printf(TEXT("%s=%s"), *EncodedKey, *EncodedValue);
+		OutKeyList += Key;
+		OutString += FString::Printf(TEXT("%s=%s"), *Key, *Value);
 
 		++Idx;
 		if (SortedParameters.Num() != Idx)
@@ -270,21 +270,24 @@ UCosHelper::FRequestData* UCosHelper::CreateRequest(const FString& URIPathName
 		return nullptr;
 	}
 
-	FRequestData* RequestData = URIToRequests.Find(URIPathName);
-	if (nullptr != RequestData)  // URI is processing
+	TSharedPtr<FRequestData>* pRequestData = URIToRequests.Find(URIPathName);
+	if (nullptr != pRequestData)  // URI is processing
 	{
+		TSharedPtr<FRequestData> RequestData = *pRequestData;
 		if (OnCosRequestCompleted.IsBound())
 		{
 			RequestData->CompletedDelegateInstances.Push(OnCosRequestCompleted);
 		}
 
-		return RequestData;
+		return RequestData.Get();
 	}
 
 	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> HttpRequest = FHttpModule::Get().CreateRequest();
 	HttpRequest->SetHeader(TEXT("Host"), Host);
 
-	const FString URL = FString::Printf(TEXT("https://%s%s?%s"), *Host, *URIPathName, *URLParameters);
+	// We must encode special characters for URI path name, otherwise the request will fail
+	const FString EncodedURIPathName = EncodePathName(URIPathName);
+	const FString URL = FString::Printf(TEXT("https://%s%s?%s"), *Host, *EncodedURIPathName, *URLParameters);
 	HttpRequest->SetURL(URL);
 
 	if (!OnFillHttpRequest(HttpRequest))
@@ -305,37 +308,53 @@ UCosHelper::FRequestData* UCosHelper::CreateRequest(const FString& URIPathName
 		return nullptr;
 	}
 
-	FRequestData NewRequestData{};
-	NewRequestData.HttpRequest = HttpRequest;
-	NewRequestData.URIPathName = URIPathName;
+	TSharedPtr<FRequestData> NewRequestData = MakeShared<FRequestData>();
+	NewRequestData->HttpRequest = HttpRequest;
+	NewRequestData->URIPathName = URIPathName;
 
 	UCosRequest* CosRequest = NewObject<UCosRequest>();
 	CosRequest->AddToRoot();
 	CosRequest->SetHttpRequest(HttpRequest);
-	NewRequestData.CosRequest = CosRequest;
+	NewRequestData->CosRequest = CosRequest;
 
 	if (OnCosRequestCompleted.IsBound())
 	{
-		NewRequestData.CompletedDelegateInstances.Push(OnCosRequestCompleted);
+		NewRequestData->CompletedDelegateInstances.Push(OnCosRequestCompleted);
 	}
-	FRequestData& AddedRequestData = URIToRequests.Add(URIPathName, MoveTemp(NewRequestData));
 
-	HttpToRequests.Add(&HttpRequest.Get(), &AddedRequestData);
+	URIToRequests.Add(URIPathName, NewRequestData);
+	HttpToRequests.Add(&HttpRequest.Get(), NewRequestData);
 
-	return &AddedRequestData;
+	return NewRequestData.Get();
+}
+
+FString UCosHelper::EncodePathName(const FString& InPathName) const
+{
+	TArray<FString> OutPathNames;
+	if (0 != InPathName.ParseIntoArray(OutPathNames, TEXT("/")))
+	{
+		for (int Idx = 0; Idx < OutPathNames.Num(); ++Idx)
+		{
+			FString& PathName = OutPathNames[Idx];
+			PathName = FPlatformHttp::UrlEncode(PathName);
+		}
+
+		return FString::Printf(TEXT("/%s"), *FString::Join(OutPathNames, TEXT("/")));
+	}
+
+	return InPathName;
 }
 
 void UCosHelper::OnHttpRequestCompleted(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bConnectedSuccessfully)
 {
-	FRequestData** ppRequestData = HttpToRequests.Find(HttpRequest.Get());
-	if (nullptr == ppRequestData)
+	TSharedPtr<FRequestData> RequestData = HttpToRequests.FindRef(HttpRequest.Get());
+	if (!RequestData.IsValid())
 	{
 		UE_LOG(LogCosHelper, Error, TEXT("Failed to find RequestData for URL: %s"), *HttpRequest->GetURL());
 		return;
 	}
 	HttpToRequests.Remove(HttpRequest.Get());
 
-	FRequestData* RequestData = *ppRequestData;
 	if (bConnectedSuccessfully && HttpResponse.IsValid())
 	{
 		if (!EHttpResponseCodes::IsOk(HttpResponse->GetResponseCode()))
@@ -374,12 +393,10 @@ void UCosHelper::OnHttpRequestCompleted(FHttpRequestPtr HttpRequest, FHttpRespon
 		CosResponse->RemoveFromRoot();
 	}
 
-	RequestData->Destroy();
-
 	URIToRequests.Remove(RequestData->URIPathName);
 }
 
-void UCosHelper::FRequestData::Destroy()
+UCosHelper::FRequestData::~FRequestData()
 {
 	HttpRequest = nullptr;
 
