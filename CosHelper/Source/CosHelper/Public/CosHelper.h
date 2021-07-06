@@ -6,7 +6,7 @@
 #include "Interfaces/IHttpRequest.h"
 #include "CosHelper.generated.h"
 
-enum class ECosHelperFileInfoType : uint32;
+enum class ECosHelperFileInfoType : uint8;
 
 struct FCosHelperInitializeInfo;
 

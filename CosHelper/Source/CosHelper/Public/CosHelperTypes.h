@@ -5,8 +5,8 @@
 #include "CoreMinimal.h"
 #include "CosHelperTypes.generated.h"
 
-UENUM(meta=(Bitflags, UseEnumValuesAsMaskValuesInEditor="true"))
-enum class ECosHelperFileInfoType : uint32
+UENUM(BlueprintType, meta=(Bitflags, UseEnumValuesAsMaskValuesInEditor="true"))
+enum class ECosHelperFileInfoType : uint8
 {
 	None                     = 0 UMETA(Hidden),
 	ContentLength            = 1 << 0,
