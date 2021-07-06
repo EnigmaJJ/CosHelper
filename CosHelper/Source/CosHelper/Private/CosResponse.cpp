@@ -54,6 +54,18 @@ int32 UCosResponse::GetResponseCode() const
 	return HttpResponse->GetResponseCode();
 }
 
+FString UCosResponse::GetFileInfo(ECosHelperFileInfoType InFileInfoType)
+{
+	static FString Empty{};
+	if (!FileInfos.Contains(InFileInfoType))
+	{
+		UE_LOG(LogCosHelper, Warning, TEXT("File info: %d does NOT exist."), static_cast<int>(InFileInfoType));
+		return Empty;
+	}
+
+	return FileInfos[InFileInfoType];
+}
+
 void UCosResponse::GenerateFileInfos(ECosHelperFileInfoType InFileInfoType)
 {
 	if (!HttpResponse.IsValid())

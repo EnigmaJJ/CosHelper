@@ -6,7 +6,7 @@
 #include "CosBase.h"
 #include "CosResponse.generated.h"
 
-enum class ECosHelperFileInfoType : uint32;
+enum class ECosHelperFileInfoType : uint8;
 
 class IHttpResponse;
 
@@ -31,6 +31,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	int32 GetResponseCode() const;
+
+	UFUNCTION(BlueprintCallable)
+	FString GetFileInfo(ECosHelperFileInfoType InFileInfoType);
 
 protected:
 	FORCEINLINE void SetHttpResponse(TSharedPtr<IHttpResponse, ESPMode::ThreadSafe> InHttpResponse) { HttpResponse = InHttpResponse; }
