@@ -78,9 +78,9 @@ void UCosResponse::GenerateFileInfos(ECosHelperFileInfoType InFileInfoType)
 		FileInfos.Add(ECosHelperFileInfoType::ContentLength, HttpResponse->GetHeader(TEXT("Content-Length")));
 	}
 
-	if (EnumHasAnyFlags(InFileInfoType, ECosHelperFileInfoType::MD5))
+	if (EnumHasAnyFlags(InFileInfoType, ECosHelperFileInfoType::ETag))
 	{
-		FileInfos.Add(ECosHelperFileInfoType::MD5, HttpResponse->GetHeader(TEXT("ETag")));
+		FileInfos.Add(ECosHelperFileInfoType::ETag, HttpResponse->GetHeader(TEXT("ETag")));
 	}
 
 	if (EnumHasAnyFlags(InFileInfoType, ECosHelperFileInfoType::LastModifiedUtcTimestamp))

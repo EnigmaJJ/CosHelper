@@ -10,7 +10,7 @@ enum class ECosHelperFileInfoType : uint8
 {
 	None                     = 0 UMETA(Hidden),
 	ContentLength            = 1 << 0,
-	MD5                      = 1 << 1,
+	ETag                     = 1 << 1,
 	LastModifiedUtcTimestamp = 1 << 2,
 };
 ENUM_CLASS_FLAGS(ECosHelperFileInfoType)
