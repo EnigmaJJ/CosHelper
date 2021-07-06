@@ -26,6 +26,31 @@ bool UCosHelper::Initialize(const FCosHelperInitializeInfo& InitializeInfo)
 	return true;
 }
 
+TWeakObjectPtr<UCosRequest> UCosHelper::GetFileInfo(const FString& URIPathName
+                                                  , const FString& URLParameters
+                                                  , ECosHelperFileInfoType FileInfoType
+                                                  , FOnCosRequestCompleted OnCosRequestCompleted)
+{
+	FRequestData* RequestData =
+		CreateRequest(URIPathName
+		            , URLParameters
+		            , [this](TSharedRef<IHttpRequest, ESPMode::ThreadSafe> HttpRequest){
+		                HttpRequest->SetVerb(TEXT("HEAD"));
+		                ReplaceWithCDNHost(HttpRequest.Get());
+
+		                return true;
+		              }
+		            , OnCosRequestCompleted);
+	if (nullptr == RequestData)
+	{
+		return nullptr;
+	}
+
+	RequestData->FileInfoType = FileInfoType;
+
+	return RequestData->CosRequest;
+}
+
 TWeakObjectPtr<UCosRequest> UCosHelper::DownloadFile(const FString& URIPathName
                                                    , const FString& URLParameters
                                                    , const FString& SavedFilePathName
@@ -36,13 +61,8 @@ TWeakObjectPtr<UCosRequest> UCosHelper::DownloadFile(const FString& URIPathName
 		            , URLParameters
 		            , [this](TSharedRef<IHttpRequest, ESPMode::ThreadSafe> HttpRequest){
 		                HttpRequest->SetVerb(TEXT("GET"));
+		                ReplaceWithCDNHost(HttpRequest.Get());
 
-		                if (!CDNHost.IsEmpty())
-		                {
-		                    FString URL = HttpRequest->GetURL();
-		                    URL = URL.Replace(*Host, *CDNHost);
-		                    HttpRequest->SetURL(URL);
-		                }
 		                return true;
 		              }
 		            , OnCosRequestCompleted);
@@ -85,7 +105,6 @@ TWeakObjectPtr<UCosRequest> UCosHelper::UploadFile(const FString& FilePathName
 		return nullptr;
 	}
 
-	RequestData->bIsUpload = true;
 	RequestData->LocalFilePathName = FilePathName;
 
 	return RequestData->CosRequest;
@@ -345,6 +364,20 @@ FString UCosHelper::EncodePathName(const FString& InPathName) const
 	return InPathName;
 }
 
+bool UCosHelper::ReplaceWithCDNHost(IHttpRequest& InHttpRequest) const
+{
+	if (CDNHost.IsEmpty())
+	{
+		return false;
+	}
+	
+	FString URL = InHttpRequest.GetURL();
+	URL = URL.Replace(*Host, *CDNHost);
+	InHttpRequest.SetURL(URL);
+
+	return true;
+}
+
 void UCosHelper::OnHttpRequestCompleted(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bConnectedSuccessfully)
 {
 	TSharedPtr<FRequestData> RequestData = HttpToRequests.FindRef(HttpRequest.Get());
@@ -366,11 +399,15 @@ void UCosHelper::OnHttpRequestCompleted(FHttpRequestPtr HttpRequest, FHttpRespon
 		}
 		else
 		{
-			if (!RequestData->bIsUpload && !RequestData->LocalFilePathName.IsEmpty())
+			const FString Verb = HttpRequest->GetVerb();
+			if (Verb.Equals(TEXT("GET")))
 			{
-				if (!FFileHelper::SaveArrayToFile(HttpResponse->GetContent(), *RequestData->LocalFilePathName))
+				if (!RequestData->LocalFilePathName.IsEmpty())
 				{
-					UE_LOG(LogCosHelper, Error, TEXT("Failed to save file: %s"), *RequestData->LocalFilePathName);
+					if (!FFileHelper::SaveArrayToFile(HttpResponse->GetContent(), *RequestData->LocalFilePathName))
+					{
+						UE_LOG(LogCosHelper, Error, TEXT("Failed to save file: %s"), *RequestData->LocalFilePathName);
+					}
 				}
 			}
 		}
@@ -381,6 +418,12 @@ void UCosHelper::OnHttpRequestCompleted(FHttpRequestPtr HttpRequest, FHttpRespon
 		UCosResponse* CosResponse = NewObject<UCosResponse>();
 		CosResponse->AddToRoot();
 		CosResponse->SetHttpResponse(HttpResponse);
+
+		const FString Verb = HttpRequest->GetVerb();
+		if (Verb.Equals(TEXT("HEAD")))
+		{
+			CosResponse->GenerateFileInfos(RequestData->FileInfoType);
+		}
 
 		for (auto& OnCompleted : RequestData->CompletedDelegateInstances)
 		{

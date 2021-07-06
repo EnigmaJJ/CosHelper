@@ -6,6 +6,8 @@
 #include "CosBase.h"
 #include "CosResponse.generated.h"
 
+enum class ECosHelperFileInfoType : uint32;
+
 class IHttpResponse;
 
 UCLASS(BlueprintType)
@@ -16,8 +18,6 @@ class COSHELPER_API UCosResponse : public UCosBase
 public:
 	UCosResponse();
 	virtual ~UCosResponse() override;
-
-	FORCEINLINE void SetHttpResponse(TSharedPtr<IHttpResponse, ESPMode::ThreadSafe> InHttpResponse) { HttpResponse = InHttpResponse; }
 
 	//~ Begin UCosBase
 	virtual const TArray<uint8>& GetContent() const override;
@@ -33,5 +33,13 @@ public:
 	int32 GetResponseCode() const;
 
 protected:
+	FORCEINLINE void SetHttpResponse(TSharedPtr<IHttpResponse, ESPMode::ThreadSafe> InHttpResponse) { HttpResponse = InHttpResponse; }
+
+	void GenerateFileInfos(ECosHelperFileInfoType InFileInfoType);
+
+protected:
+	friend class UCosHelper;
+
 	TSharedPtr<IHttpResponse, ESPMode::ThreadSafe> HttpResponse;
+	TMap<ECosHelperFileInfoType, FString> FileInfos;
 };

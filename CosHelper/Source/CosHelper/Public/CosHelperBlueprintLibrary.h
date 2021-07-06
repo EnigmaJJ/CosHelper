@@ -28,6 +28,13 @@ public:
 	static void DestroyCosHelper(UCosHelper* CosHelper);
 
 	UFUNCTION(BlueprintCallable, Category = "CosHelper")
+	static UCosRequest* GetFileInfo(UCosHelper* CosHelper
+	                              , const FString& URIPathName
+	                              , const FString& URLParameters
+	                              , UPARAM(meta=(Bitmask, BitmaskEnum=ECosHelperFileInfoType)) int32 FileInfoType
+	                              , FOnCosRequestCompletedDynamic OnCosRequestCompleted);
+
+	UFUNCTION(BlueprintCallable, Category = "CosHelper")
 	static UCosRequest* DownloadFile(UCosHelper* CosHelper
 	                               , const FString& URIPathName
 	                               , const FString& URLParameters

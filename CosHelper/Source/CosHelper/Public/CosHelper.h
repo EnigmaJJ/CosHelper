@@ -6,6 +6,8 @@
 #include "Interfaces/IHttpRequest.h"
 #include "CosHelper.generated.h"
 
+enum class ECosHelperFileInfoType : uint32;
+
 struct FCosHelperInitializeInfo;
 
 class UCosRequest;
@@ -23,6 +25,20 @@ public:
 	bool Initialize(const FCosHelperInitializeInfo& InitializeInfo);
 
 	FORCEINLINE void SetCDNHost(const FString& InHost) { CDNHost = InHost; }
+
+	/**
+	 * 从服务器获取文件信息（避免下载文件）
+	 * @param URIPathName 服务器上的文件路径名，文件路径名需要以'/'开头，相对于存储桶，如"/v.txt"
+	 * @param URLParameters 请求参数，会添加到Http请求路径之后，如"acl=9" -> https://v.txt?acl=9
+	 * @param FileInfoType 需要获取的信息类型，是ECosHelperFileInfoType枚举的组合
+	 * @param OnCosRequestCompleted 文件信息获取后的回调
+	 *
+	 * @remark 最终生成的URL形式为：https://Host[URIPathName]?[URLParameters]
+	 */
+	TWeakObjectPtr<UCosRequest> GetFileInfo(const FString& URIPathName
+	                                      , const FString& URLParameters
+	                                      , ECosHelperFileInfoType FileInfoType
+	                                      , FOnCosRequestCompleted OnCosRequestCompleted);
 
 	/**
 	 * 从服务器下载文件
@@ -61,10 +77,11 @@ private:
 		/** 本地文件路径名。对于下载请求，是下载后保存在本地的文件路径名；对于上传请求，是需要上传的本地文件路径名 */
 		FString LocalFilePathName;
 
-		bool bIsUpload;
 		UCosRequest* CosRequest;
 		TSharedPtr<IHttpRequest, ESPMode::ThreadSafe> HttpRequest;
 		TArray<FOnCosRequestCompleted> CompletedDelegateInstances;
+
+		ECosHelperFileInfoType FileInfoType;
 
 		~FRequestData();
 	};
@@ -97,6 +114,8 @@ private:
 	                          , FOnCosRequestCompleted OnCosRequestCompleted);
 
 	FString EncodePathName(const FString& InPathName) const;
+
+	bool ReplaceWithCDNHost(IHttpRequest& InHttpRequest) const;
 
 	void OnHttpRequestCompleted(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bConnectedSuccessfully);
 

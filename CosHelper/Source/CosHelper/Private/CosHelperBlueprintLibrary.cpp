@@ -26,6 +26,36 @@ void UCosHelperBlueprintLibrary::DestroyCosHelper(UCosHelper* CosHelper)
 	CosHelper = nullptr;
 }
 
+UCosRequest* UCosHelperBlueprintLibrary::GetFileInfo(UCosHelper* CosHelper
+                                                   , const FString& URIPathName
+                                                   , const FString& URLParameters
+                                                   , UPARAM(meta=(Bitmask, BitmaskEnum=ECosHelperFileInfoType)) int32 FileInfoType
+                                                   , FOnCosRequestCompletedDynamic OnCosRequestCompleted)
+{
+	if (nullptr == CosHelper)
+	{
+		return nullptr;
+	}
+
+	const TWeakObjectPtr<UCosRequest> CosRequest =
+		CosHelper->GetFileInfo(URIPathName
+		                     , URLParameters
+		                     , static_cast<ECosHelperFileInfoType>(FileInfoType)
+		                     , UCosHelper::FOnCosRequestCompleted::CreateLambda([OnCosRequestCompleted](const UCosResponse& CosResponse)
+		                     {
+		                       if (OnCosRequestCompleted.IsBound())
+		                       {
+		                         OnCosRequestCompleted.Execute(&CosResponse);
+		                       }
+		                     }));
+	if (!CosRequest.IsValid())
+	{
+		return nullptr;
+	}
+
+	return CosRequest.Get();
+}
+
 UCosRequest* UCosHelperBlueprintLibrary::DownloadFile(UCosHelper* CosHelper
                                                     , const FString& URIPathName
                                                     , const FString& URLParameters
