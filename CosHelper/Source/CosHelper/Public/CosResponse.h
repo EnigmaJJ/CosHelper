@@ -36,6 +36,7 @@ public:
 	FString GetFileInfo(ECosHelperFileInfoType InFileInfoType);
 
 protected:
+	FORCEINLINE void SetConnectedSuccessfully(bool bInConnectedSuccessfully) { bConnectedSuccessfully = bInConnectedSuccessfully; }
 	FORCEINLINE void SetHttpResponse(TSharedPtr<IHttpResponse, ESPMode::ThreadSafe> InHttpResponse) { HttpResponse = InHttpResponse; }
 
 	void GenerateFileInfos(ECosHelperFileInfoType InFileInfoType);
@@ -43,6 +44,7 @@ protected:
 protected:
 	friend class UCosHelper;
 
+	bool bConnectedSuccessfully;
 	TSharedPtr<IHttpResponse, ESPMode::ThreadSafe> HttpResponse;
 	TMap<ECosHelperFileInfoType, FString> FileInfos;
 };

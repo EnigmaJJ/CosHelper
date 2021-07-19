@@ -370,7 +370,7 @@ bool UCosHelper::ReplaceWithCDNHost(IHttpRequest& InHttpRequest) const
 	{
 		return false;
 	}
-	
+
 	FString URL = InHttpRequest.GetURL();
 	URL = URL.Replace(*Host, *CDNHost);
 	InHttpRequest.SetURL(URL);
@@ -388,14 +388,15 @@ void UCosHelper::OnHttpRequestCompleted(FHttpRequestPtr HttpRequest, FHttpRespon
 	}
 	HttpToRequests.Remove(HttpRequest.Get());
 
-	if (bConnectedSuccessfully && HttpResponse.IsValid())
+	if (HttpResponse.IsValid())
 	{
-		if (!EHttpResponseCodes::IsOk(HttpResponse->GetResponseCode()))
+		if (!bConnectedSuccessfully || !EHttpResponseCodes::IsOk(HttpResponse->GetResponseCode()))
 		{
 			UE_LOG(LogCosHelper
 			     , Error
-			     , TEXT("Failed to request URL: %s. ResponseCode: %d.\nError: %s")
-			     , *HttpResponse->GetURL(), HttpResponse->GetResponseCode(), *HttpResponse->GetContentAsString());
+			     , TEXT("Failed to request URL: %s. ConnectedSuccessfully: %d, ResponseCode: %d.\nError: %s")
+			     , *HttpResponse->GetURL(), bConnectedSuccessfully
+			     , HttpResponse->GetResponseCode(), *HttpResponse->GetContentAsString());
 		}
 		else
 		{
@@ -418,6 +419,7 @@ void UCosHelper::OnHttpRequestCompleted(FHttpRequestPtr HttpRequest, FHttpRespon
 		UCosResponse* CosResponse = NewObject<UCosResponse>();
 		CosResponse->AddToRoot();
 		CosResponse->SetHttpResponse(HttpResponse);
+		CosResponse->SetConnectedSuccessfully(bConnectedSuccessfully);
 
 		const FString Verb = HttpRequest->GetVerb();
 		if (Verb.Equals(TEXT("HEAD")))

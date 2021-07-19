@@ -41,7 +41,7 @@ bool UCosResponse::IsOK() const
 		return false;
 	}
 
-	return EHttpResponseCodes::IsOk(HttpResponse->GetResponseCode());
+	return bConnectedSuccessfully && EHttpResponseCodes::IsOk(HttpResponse->GetResponseCode());
 }
 
 int32 UCosResponse::GetResponseCode() const
